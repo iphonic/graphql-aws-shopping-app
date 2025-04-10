@@ -14,11 +14,12 @@ import PlusIcon from "src/icons/PlusIcon";
 import DeleteIcon from "src/icons/DeleteIcon";
 import { ProductProps } from "../ProductListScreen/Products.type";
 import { CartItemProps } from "./CartItem.type";
-import { fetchCartItems, upsertCartItem } from "src/api/graphql";
-import Toast from "react-native-toast-message";
+import { useCartActions } from "src/hooks/useCartActions";
 
 export default function CartRow({ navigation, item }: CartItemProps) {
   const [removingItem, setRemovingItem] = useState(false);
+
+  const { handleRemoveCartItem, handleUpdateQuantity } = useCartActions();
 
   const [addingQty, setAddingQty] = useState(false);
   const [removingQty, setRemovingQty] = useState(false);
@@ -38,48 +39,19 @@ export default function CartRow({ navigation, item }: CartItemProps) {
   };
 
   const handleRemoveItem = async () => {
-    setRemovingItem(true);
-    try {
-      await upsertCartItem({
-        ...item,
-        metadata: { ...item.metadata, quantity: 0 },
-      });
-      Toast.show({
-        type: "success",
-        text1: "Product removed from cart!",
-      });
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Failed to remove Product!",
-      });
-    } finally {
-      await fetchCartItems();
-      setRemovingItem(false);
-    }
+    await handleRemoveCartItem(item, {
+      onStart: () => setRemovingItem(true),
+      onEnd: () => setRemovingItem(false),
+    });
   };
 
   const updateQuantity = async (qty: number) => {
-    if (qty <= 0) {
-      return;
-    }
-    const updatedItem = {
-      id: item.id,
-      name: item.name,
-      content: item.content,
-      metadata: {
-        ...item.metadata,
-        quantity: qty,
+    await handleUpdateQuantity(item, qty, {
+      onEnd: () => {
+        setRemovingQty(false);
+        setAddingQty(false);
       },
-    };
-    try {
-      await upsertCartItem(updatedItem);
-    } catch (error) {
-    } finally {
-      await fetchCartItems();
-      setRemovingQty(false);
-      setAddingQty(false);
-    }
+    });
   };
 
   return (

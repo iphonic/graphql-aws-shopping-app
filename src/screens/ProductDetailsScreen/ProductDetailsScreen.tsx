@@ -14,15 +14,16 @@ import styles from "./ProductDetailsScreen.style";
 import { ProductDetailsScreenProps } from "src/types/navigation";
 import MinusIcon from "src/icons/MinusIcon";
 import PlusIcon from "src/icons/PlusIcon";
-import Toast from "react-native-toast-message";
-import { fetchCartItems, upsertCartItem } from "src/api/graphql";
-import { CartItem } from "../CartScreen/Cart.type";
 import { useSelector } from "react-redux";
 import { RootState } from "src/store";
 import { cartItemById } from "src/store/cartSlice";
+import { useCartActions } from "src/hooks/useCartActions";
 
 const ProductDetailsScreen = ({ route }: ProductDetailsScreenProps) => {
   const navigation = useNavigation();
+
+  const { handleRemoveCartItem, handleAddItemToCart, handleUpdateQuantity } =
+    useCartActions();
 
   const [loading, setLoading] = useState(false);
 
@@ -49,109 +50,32 @@ const ProductDetailsScreen = ({ route }: ProductDetailsScreenProps) => {
   }
 
   const handleAddToCart = async () => {
-    let cartItemToAdd: CartItem;
-
     if (product && !fromCart) {
-      setLoading(true);
-      let toUpdate = true;
-      if (itemCart && itemCart.metadata.quantity === 0) {
-        // Item exists in cart (with quantity 0), so restore it
-        cartItemToAdd = {
-          ...itemCart,
-          metadata: {
-            ...itemCart.metadata,
-            quantity: 1,
-          },
-        };
-      } else {
-        cartItemToAdd = {
-          id: product.id,
-          name: product.title,
-          content: product.description,
-          metadata: {
-            price: product.price,
-            quantity: 1,
-            image: product.image,
-            reviews: product.reviews,
-            rating: product.rating,
-            category: product.category,
-            productid: String(product.id),
-          },
-        };
-        toUpdate = false;
-      }
-
-      try {
-        const qlcartItem: CartItem = { ...cartItemToAdd };
-
-        //If we need to create new entry don't need id
-        if (!toUpdate) delete qlcartItem.id;
-
-        await upsertCartItem(qlcartItem);
-
-        Toast.show({
-          type: "success",
-          text1: "Product added to cart!",
-          text2: "Check your cart for details.",
-        });
-      } catch (err) {
-        console.log("Failed to sync with backend:", err);
-        Toast.show({
-          type: "error",
-          text1: "Failed to add Product in cart!",
-        });
-      } finally {
-        setLoading(false);
-        navigation.goBack();
-        fetchCartItems();
-      }
+      await handleAddItemToCart(product, 1, fromCart, itemCart, {
+        onStart: () => setLoading(true),
+        onEnd: () => {
+          setLoading(false);
+          navigation.goBack();
+        },
+        handleProductDetailsLogic: true,
+      });
     }
   };
 
   const handleRemoveItem = async (item: any) => {
-    setLoading(true);
-    try {
-      await upsertCartItem({
-        ...item,
-        metadata: { ...item.metadata, quantity: 0 },
-      });
-      Toast.show({
-        type: "success",
-        text1: "Product removed from cart!",
-      });
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Failed to remove from Cart!",
-      });
-    } finally {
-      setLoading(false);
-      navigation.goBack();
-      fetchCartItems();
-    }
+    await handleRemoveCartItem(item, {
+      onStart: () => setLoading(true),
+      onEnd: () => {
+        setLoading(false);
+        navigation.goBack();
+      },
+    });
   };
 
   const updateQuantity = async (item: any, qty: number) => {
-    if (qty <= 0) {
-      return;
-    }
-
-    const updatedItem = {
-      id: item.id,
-      name: item.name,
-      content: item.content,
-      metadata: {
-        ...item.metadata,
-        quantity: qty,
-      },
-    };
-    try {
-      await upsertCartItem(updatedItem);
-      await fetchCartItems();
-    } catch (error) {
-    } finally {
-      setUpdatingQty(false);
-    }
+    await handleUpdateQuantity(item, qty, {
+      onEnd: () => setUpdatingQty(false),
+    });
   };
 
   useEffect(() => {
