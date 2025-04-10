@@ -1,0 +1,13 @@
+{
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "include": ["."],
+  "compilerOptions": {
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["src/*"],
+      "@components/*": ["src/components/*"]
+    }
+  }
+}
